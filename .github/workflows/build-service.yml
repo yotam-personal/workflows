@@ -11,7 +11,7 @@ on:
       image:      {type: string, required: true}   # e.g. yotampeled/checkers-api
       test:       {type: string, required: false, default: ""}
     secrets:
-      ORBIT_DISPATCH_TOKEN: {required: true}
+      ORBIT_DISPATCH_TOKEN: {required: false}
 
 permissions:
   contents: read
@@ -56,30 +56,3 @@ jobs:
           tags: ghcr.io/${{ inputs.image }}:${{ steps.meta.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      # Notify, never push. An app repo that could commit to the platform repo would be a
-      # path from any app repo's leaked credential to arbitrary code in production; and a
-      # naive push from two concurrent builds silently loses one of them.
-      # Every value travels through env, and the JSON is built by jq rather than by string
-      # interpolation. A branch name may legally contain a single quote (git accepts
-      # `quote'name`), which broke out of the old single-quoted -d '{...}' and executed as a
-      # separate command inside a job holding the dispatch token and packages: write. A
-      # double quote let it inject extra client_payload keys. The token moves to env too:
-      # inline in a run: script it appears in the process table and in any `set -x` trace.
-      - name: Tell the platform
-        env:
-          GH_TOKEN: ${{ secrets.ORBIT_DISPATCH_TOKEN }}
-          IMAGE:    ${{ inputs.image }}
-          TAG:      ${{ steps.meta.outputs.tag }}
-          BRANCH:   ${{ github.ref_name }}
-          REPO:     ${{ github.repository }}
-        run: |
-          PAYLOAD=$(jq -n \
-            --arg image "$IMAGE" --arg tag "$TAG" \
-            --arg branch "$BRANCH" --arg repo "$REPO" \
-            '{event_type:"image-built",client_payload:{image:$image,tag:$tag,branch:$branch,repo:$repo}}')
-          curl -sf -X POST \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/YotamPeled/yotam-platform/dispatches \
-            -d "$PAYLOAD"
