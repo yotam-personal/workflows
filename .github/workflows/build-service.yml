@@ -10,8 +10,12 @@ on:
       dockerfile: {type: string, required: false, default: "Dockerfile"}
       image:      {type: string, required: true}   # e.g. yotampeled/checkers-api
       test:       {type: string, required: false, default: ""}
-    secrets:
-      ORBIT_DISPATCH_TOKEN: {required: false}
+    # No `secrets:` block, and none is wanted. This workflow used to accept an
+    # ORBIT_DISPATCH_TOKEN and spend it on a repository_dispatch that told the platform what
+    # had been built. The platform now reads the build event through a GitHub App it owns, so
+    # the step went first and the declaration followed it on 2026-08-30 — a caller that still
+    # passes the secret is the only thing this removal can break, and all three were cleaned
+    # up before it landed. Callers hold no credentials at all now.
 
 permissions:
   contents: read
